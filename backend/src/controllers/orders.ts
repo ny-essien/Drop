@@ -1,9 +1,10 @@
-import { Request, Response } from 'express';
+import { Response } from 'express';
 import Order from '../models/Order';
 import Cart from '../models/Cart';
 import Product from '../models/Product';
+import { AuthenticatedRequest } from '../types/custom';
 
-export const getOrders = async (req: Request, res: Response) => {
+export const getOrders = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const orders = await Order.find({ user: req.user?.userId })
       .populate('items.product')
@@ -14,7 +15,7 @@ export const getOrders = async (req: Request, res: Response) => {
   }
 };
 
-export const getOrderById = async (req: Request, res: Response) => {
+export const getOrderById = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const order = await Order.findById(req.params.id).populate('items.product');
     if (!order) {
@@ -26,7 +27,7 @@ export const getOrderById = async (req: Request, res: Response) => {
   }
 };
 
-export const createOrder = async (req: Request, res: Response) => {
+export const createOrder = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { shippingAddress } = req.body;
 

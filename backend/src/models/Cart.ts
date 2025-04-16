@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 export interface ICartItem {
   product: mongoose.Types.ObjectId;
   quantity: number;
+  _id?: mongoose.Types.ObjectId;
 }
 
 export interface ICart extends mongoose.Document {

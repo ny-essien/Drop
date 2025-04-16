@@ -1,32 +1,55 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import React from 'react';
+import { Routes, Route } from 'react-router-dom';
+import { AuthProvider } from './context/AuthContext';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
-import Home from './pages/Home';
+import HomePage from './pages/HomePage';
 import ProductPage from './pages/ProductPage';
 import CartPage from './pages/CartPage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
-import OrdersPage from './pages/OrdersPage';
+import ProfilePage from './pages/ProfilePage';
+import VerifyEmailPage from './pages/VerifyEmailPage';
+import ForgotPasswordPage from './pages/ForgotPasswordPage';
+import ResetPasswordPage from './pages/ResetPasswordPage';
+import PrivateRoute from './components/PrivateRoute';
 
-function App() {
+const App: React.FC = () => {
   return (
-    <Router>
-      <div className="min-h-screen flex flex-col">
+    <AuthProvider>
+      <div className="flex flex-col min-h-screen">
         <Navbar />
-        <main className="flex-grow container mx-auto px-4 py-8">
+        <main className="flex-grow">
           <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/products/:id" element={<ProductPage />} />
+            <Route path="/" element={<HomePage />} />
+            <Route path="/product/:id" element={<ProductPage />} />
             <Route path="/cart" element={<CartPage />} />
+            <Route path="/all-jewelry" element={<HomePage />} />
+            <Route path="/new" element={<HomePage />} />
+            <Route path="/earrings" element={<HomePage />} />
+            <Route path="/rings" element={<HomePage />} />
+            <Route path="/necklaces" element={<HomePage />} />
+            <Route path="/bracelets" element={<HomePage />} />
+            <Route path="/gifts" element={<HomePage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
-            <Route path="/orders" element={<OrdersPage />} />
+            <Route path="/verify-email/:token" element={<VerifyEmailPage />} />
+            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+            <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
+            <Route
+              path="/profile"
+              element={
+                <PrivateRoute>
+                  <ProfilePage />
+                </PrivateRoute>
+              }
+            />
           </Routes>
         </main>
         <Footer />
       </div>
-    </Router>
+    </AuthProvider>
   );
-}
+};
 
 export default App; 
