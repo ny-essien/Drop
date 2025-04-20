@@ -43,6 +43,7 @@ jobs:
     - name: Run backend tests
       run: |
         cd backend
+        export PYTHONPATH=$PYTHONPATH:$(pwd)
         pytest --cov=app tests/ --cov-report=xml
 
     - name: Run frontend tests
