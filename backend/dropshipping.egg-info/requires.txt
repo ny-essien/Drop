@@ -1,0 +1,15 @@
+fastapi
+uvicorn
+motor
+python-jose[cryptography]
+passlib[bcrypt]
+python-multipart
+celery
+redis
+pydantic
+pydantic-settings
+python-dotenv
+stripe
+pytest
+httpx
+pymongo
