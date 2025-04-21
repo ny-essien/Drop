@@ -3,7 +3,7 @@ from typing import Dict, Any, List, Optional
 from datetime import datetime
 from app.services.notification_service import NotificationService
 from app.models import Order, Notification
-from app.auth import get_current_user
+from app.core.deps import get_current_user
 
 router = APIRouter()
 notification_service = NotificationService()
