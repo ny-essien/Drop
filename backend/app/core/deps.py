@@ -2,24 +2,15 @@ from typing import Generator, Optional
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import jwt, JWTError
-from motor.motor_asyncio import AsyncIOMotorClient
-from pymongo.database import Database
-
+from motor.motor_asyncio import AsyncIOMotorDatabase
 from app.core.config import settings
 from app.models.user import User
+from app.db import get_database
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
-async def get_db() -> Generator:
-    try:
-        client = AsyncIOMotorClient(settings.MONGODB_URI)
-        db = client[settings.MONGODB_NAME]
-        yield db
-    finally:
-        client.close()
-
 async def get_current_user(
-    db: Database = Depends(get_db),
+    db: AsyncIOMotorDatabase = Depends(get_database),
     token: str = Depends(oauth2_scheme)
 ) -> User:
     credentials_exception = HTTPException(
