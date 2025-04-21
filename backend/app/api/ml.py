@@ -1,7 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from typing import List, Dict
+from app.core.deps import get_current_user
 from app.services.ml_service import MLService
-from app.auth import get_current_user
 from app.models import User
 
 router = APIRouter()

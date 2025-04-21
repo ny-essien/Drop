@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from typing import List, Dict, Optional
-from app.services.product_sourcing import ProductSourcingService
-from app.auth import get_current_user
+from app.core.deps import get_current_user
+from app.services.product_sourcing_service import ProductSourcingService
 from app.models import User
 
 router = APIRouter()
