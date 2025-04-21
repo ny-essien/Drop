@@ -34,4 +34,11 @@ class Cart(BaseModel):
                     }
                 ]
             }
-        } 
+        }
+
+class CartCreate(BaseModel):
+    user_id: str
+    items: List[CartItem] = []
+
+class CartUpdate(BaseModel):
+    items: Optional[List[CartItem]] = None 
