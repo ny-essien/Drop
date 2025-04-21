@@ -1,8 +1,7 @@
-from typing import List
-from pydantic import BaseSettings, AnyHttpUrl, validator
-from pydantic.networks import AnyHttpUrl
+from typing import List, Optional
+from pydantic import AnyHttpUrl, validator
+from pydantic_settings import BaseSettings
 import secrets
-from typing import Optional
 
 class Settings(BaseSettings):
     API_V1_STR: str = "/api/v1"
