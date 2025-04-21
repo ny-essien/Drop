@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from typing import List
 from motor.motor_asyncio import AsyncIOMotorDatabase
-from app.models import Product, Supplier
+from app.models import Product, Supplier, User
 from app.services.supplier_sync import SupplierSyncService
 from app.core.deps import get_db, get_current_admin
 

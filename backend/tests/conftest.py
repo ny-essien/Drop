@@ -1,10 +1,22 @@
 import pytest
 import asyncio
+import sys
+import os
+from unittest.mock import MagicMock
 from fastapi.testclient import TestClient
 from motor.motor_asyncio import AsyncIOMotorClient
 from pymongo import MongoClient
 from datetime import datetime, timedelta
 from jose import jwt
+
+# Add the backend directory to Python path
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+# Mock external dependencies
+sys.modules['stripe'] = MagicMock()
+sys.modules['app.services.payment'] = MagicMock()
+sys.modules['fastapi_mail'] = MagicMock()
+sys.modules['app.services.notification'] = MagicMock()
 
 from app.main import app
 from app.config import settings
