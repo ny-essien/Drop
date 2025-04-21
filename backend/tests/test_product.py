@@ -2,7 +2,7 @@ import pytest
 from fastapi.testclient import TestClient
 from app.models.product import Product
 from app.services.product_service import ProductService
-from app.api.product import router as product_router
+from app.api.products import router as product_router
 from datetime import datetime
 
 @pytest.fixture

@@ -40,6 +40,7 @@ class Settings(BaseSettings):
     # JWT settings
     JWT_SECRET: str = secrets.token_urlsafe(32)
     JWT_ALGORITHM: str = "HS256"
+    ALGORITHM: str = "HS256"  # For backward compatibility
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 8  # 8 days
 
     # Stripe settings
