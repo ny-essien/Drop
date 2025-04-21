@@ -8,6 +8,11 @@ from .supplier import Supplier, SupplierCreate, SupplierUpdate
 from .support import SupportTicket, TicketMessage, TicketCreate, TicketUpdate, MessageCreate, TicketResponse, TicketStatus
 from .knowledge_base import KnowledgeBaseArticle, ArticleCreate, ArticleUpdate, ArticleVote, ArticleStatus, ArticleCategory
 from .faq import FAQ, FAQCreate, FAQUpdate, FAQCategory
+from .analytics import (
+    SalesAnalytics, AnalyticsRequest, AnalyticsResponse,
+    CustomerAnalytics, ProductAnalytics, SupplierAnalytics,
+    FinancialReport, TimeRange, MetricType
+)
 
 __all__ = [
     "User",
@@ -44,5 +49,14 @@ __all__ = [
     "FAQ",
     "FAQCreate",
     "FAQUpdate",
-    "FAQCategory"
+    "FAQCategory",
+    "SalesAnalytics",
+    "AnalyticsRequest",
+    "AnalyticsResponse",
+    "CustomerAnalytics",
+    "ProductAnalytics",
+    "SupplierAnalytics",
+    "FinancialReport",
+    "TimeRange",
+    "MetricType"
 ] 
