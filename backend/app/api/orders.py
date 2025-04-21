@@ -8,6 +8,11 @@ from app.models import Order, User
 router = APIRouter()
 order_service = OrderService()
 
+@router.on_event("startup")
+async def startup_event():
+    """Initialize the order service on startup"""
+    await order_service.initialize()
+
 @router.get("/", response_model=List[Order])
 async def get_orders(
     status: Optional[str] = Query(None, description="Filter by order status"),
