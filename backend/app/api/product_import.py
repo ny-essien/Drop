@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException
-from typing import List
+from typing import List, Dict
 from motor.motor_asyncio import AsyncIOMotorDatabase
-from app.models import Product, Supplier
+from app.models.product import Product, ProductCreate
 from app.services.product import ProductService
-from app.core.deps import get_db
+from app.dependencies import get_db
 
 router = APIRouter()
 

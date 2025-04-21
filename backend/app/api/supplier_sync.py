@@ -1,9 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
-from typing import List
+from typing import List, Dict
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from app.models import Product, Supplier, User
 from app.services.supplier_sync import SupplierSyncService
-from app.core.deps import get_db, get_current_admin
+from app.dependencies import get_db, get_current_admin
+from app.models.supplier import SupplierSync, SyncStatus
 
 router = APIRouter()
 

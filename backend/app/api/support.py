@@ -3,7 +3,7 @@ from typing import List, Optional
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from app.models import SupportTicket, TicketResponse, TicketStatus, User
 from app.services.support import SupportService
-from app.core.deps import get_db, get_current_user, get_current_admin
+from app.dependencies import get_db, get_current_user, get_current_admin
 from bson import ObjectId
 
 router = APIRouter()

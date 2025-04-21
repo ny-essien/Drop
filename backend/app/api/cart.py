@@ -6,7 +6,8 @@ from app.services.cart import CartService
 from app.services.order import OrderService
 from app.services.payment import PaymentService
 from app.services.notification import NotificationService
-from app.core.deps import get_db, get_current_user
+from app.core.deps import get_current_user
+from app.db import get_database
 
 router = APIRouter()
 payment_service = PaymentService()
@@ -15,7 +16,7 @@ notification_service = NotificationService()
 @router.get("/items", response_model=List[CartItem])
 async def get_cart_items(
     current_user: User = Depends(get_current_user),
-    db: AsyncIOMotorDatabase = Depends(get_db)
+    db: AsyncIOMotorDatabase = Depends(get_database)
 ):
     cart_service = CartService(db)
     return await cart_service.get_cart_items(str(current_user.id))
@@ -25,7 +26,7 @@ async def add_to_cart(
     product_id: str,
     quantity: int = 1,
     current_user: User = Depends(get_current_user),
-    db: AsyncIOMotorDatabase = Depends(get_db)
+    db: AsyncIOMotorDatabase = Depends(get_database)
 ):
     cart_service = CartService(db)
     cart_item = await cart_service.add_to_cart(str(current_user.id), product_id, quantity)
@@ -38,7 +39,7 @@ async def update_cart_item(
     product_id: str,
     quantity: int,
     current_user: User = Depends(get_current_user),
-    db: AsyncIOMotorDatabase = Depends(get_db)
+    db: AsyncIOMotorDatabase = Depends(get_database)
 ):
     cart_service = CartService(db)
     cart_item = await cart_service.update_cart_item(str(current_user.id), product_id, quantity)
@@ -50,7 +51,7 @@ async def update_cart_item(
 async def remove_from_cart(
     product_id: str,
     current_user: User = Depends(get_current_user),
-    db: AsyncIOMotorDatabase = Depends(get_db)
+    db: AsyncIOMotorDatabase = Depends(get_database)
 ):
     cart_service = CartService(db)
     success = await cart_service.remove_from_cart(str(current_user.id), product_id)
@@ -61,7 +62,7 @@ async def remove_from_cart(
 @router.delete("/clear")
 async def clear_cart(
     current_user: User = Depends(get_current_user),
-    db: AsyncIOMotorDatabase = Depends(get_db)
+    db: AsyncIOMotorDatabase = Depends(get_database)
 ):
     cart_service = CartService(db)
     await cart_service.clear_cart(str(current_user.id))
@@ -73,7 +74,7 @@ async def checkout(
     billing_address: Dict,
     payment_method: str,
     current_user: User = Depends(get_current_user),
-    db: AsyncIOMotorDatabase = Depends(get_db)
+    db: AsyncIOMotorDatabase = Depends(get_database)
 ):
     order_service = OrderService(db)
     order = await order_service.create_order(
@@ -97,7 +98,7 @@ async def checkout(
     }
 
 @router.post("/webhook")
-async def stripe_webhook(request: Request, db: AsyncIOMotorDatabase = Depends(get_db)):
+async def stripe_webhook(request: Request, db: AsyncIOMotorDatabase = Depends(get_database)):
     payload = await request.body()
     sig_header = request.headers.get('stripe-signature')
     
@@ -124,7 +125,7 @@ async def stripe_webhook(request: Request, db: AsyncIOMotorDatabase = Depends(ge
 async def get_order_status(
     order_id: str,
     current_user: User = Depends(get_current_user),
-    db: AsyncIOMotorDatabase = Depends(get_db)
+    db: AsyncIOMotorDatabase = Depends(get_database)
 ):
     order_service = OrderService(db)
     order = await order_service.get_order(order_id)
@@ -140,7 +141,7 @@ async def get_order_status(
 @router.get("/orders", response_model=List[Order])
 async def get_user_orders(
     current_user: User = Depends(get_current_user),
-    db: AsyncIOMotorDatabase = Depends(get_db)
+    db: AsyncIOMotorDatabase = Depends(get_database)
 ):
     order_service = OrderService(db)
     return await order_service.get_user_orders(str(current_user.id))
@@ -149,7 +150,7 @@ async def get_user_orders(
 async def get_order(
     order_id: str,
     current_user: User = Depends(get_current_user),
-    db: AsyncIOMotorDatabase = Depends(get_db)
+    db: AsyncIOMotorDatabase = Depends(get_database)
 ):
     order_service = OrderService(db)
     order = await order_service.get_order(order_id)
@@ -161,7 +162,7 @@ async def get_order(
 async def cancel_user_order(
     order_id: str,
     current_user: User = Depends(get_current_user),
-    db: AsyncIOMotorDatabase = Depends(get_db)
+    db: AsyncIOMotorDatabase = Depends(get_database)
 ):
     order_service = OrderService(db)
     order = await order_service.cancel_order(order_id, str(current_user.id))
