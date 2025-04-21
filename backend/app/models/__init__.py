@@ -7,6 +7,7 @@ from .cart import Cart, CartItem, CartCreate, CartUpdate
 from .supplier import Supplier, SupplierCreate, SupplierUpdate
 from .support import SupportTicket, TicketMessage, TicketCreate, TicketUpdate, MessageCreate, TicketResponse, TicketStatus
 from .knowledge_base import KnowledgeBaseArticle, ArticleCreate, ArticleUpdate, ArticleVote, ArticleStatus, ArticleCategory
+from .faq import FAQ, FAQCreate, FAQUpdate, FAQCategory
 
 __all__ = [
     "User",
@@ -39,5 +40,9 @@ __all__ = [
     "ArticleUpdate",
     "ArticleVote",
     "ArticleStatus",
-    "ArticleCategory"
+    "ArticleCategory",
+    "FAQ",
+    "FAQCreate",
+    "FAQUpdate",
+    "FAQCategory"
 ] 
