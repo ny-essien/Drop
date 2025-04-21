@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from typing import List, Optional
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from app.models.product import Product, ProductCreate, ProductUpdate
+from app.models.user import User
 from app.dependencies import get_db, get_current_user, get_current_admin
 from app.services.product import ProductService
 
