@@ -1,9 +1,13 @@
 import pytest
 from fastapi.testclient import TestClient
+from fastapi import FastAPI
 from datetime import datetime
 from app.core.security import create_access_token
 from app.models import User, Notification
+from app.api.notifications import router as notification_router
 
+app = FastAPI()
+app.include_router(notification_router)
 client = TestClient(app)
 
 @pytest.fixture
