@@ -1,7 +1,8 @@
 import pytest
 from fastapi import HTTPException
 from datetime import datetime
-from app.auth import verify_password, get_current_user, create_access_token
+from app.core.security import verify_password, create_access_token
+from app.core.deps import get_current_user
 
 async def test_verify_password():
     # Test with correct password

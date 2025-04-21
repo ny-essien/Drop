@@ -1,8 +1,8 @@
 import pytest
 from fastapi.testclient import TestClient
-from app.main import app
-from app.models import Notification
-from app.auth import create_access_token
+from datetime import datetime
+from app.core.security import create_access_token
+from app.models import User, Notification
 
 client = TestClient(app)
 
