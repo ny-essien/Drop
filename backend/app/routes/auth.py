@@ -2,11 +2,14 @@ from datetime import timedelta
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from motor.motor_asyncio import AsyncIOMotorDatabase
-
-from app.schemas.auth import UserCreate, Token
-from app.services.auth import AuthService, create_access_token
-from app.core.database import get_database
+from jose import JWTError, jwt
+from datetime import datetime, timedelta
+from typing import Optional
+from pydantic import BaseModel
+from app.db import get_database
 from app.core.config import settings
+from app.models.user import User, UserCreate, UserInDB
+from app.core.deps import get_current_user
 
 router = APIRouter()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")

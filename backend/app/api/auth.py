@@ -1,12 +1,16 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from datetime import timedelta
-from bson import ObjectId
+from jose import JWTError, jwt
+from datetime import datetime, timedelta
+from typing import Optional
+from pydantic import BaseModel
+from app.db import get_database
+from app.core.config import settings
+from app.models.user import User, UserCreate, UserInDB
+from app.core.deps import get_current_user
 
 from app.core.database import get_db
 from app.core.security import verify_password, create_access_token, get_password_hash
-from app.models.user import UserCreate, UserInDB
-from app.core.config import settings
 
 router = APIRouter()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")

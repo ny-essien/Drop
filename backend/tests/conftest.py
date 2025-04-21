@@ -19,7 +19,7 @@ sys.modules['fastapi_mail'] = MagicMock()
 sys.modules['app.services.notification'] = MagicMock()
 
 from app.main import app
-from app.config import settings
+from app.core.config import settings
 from app.db import get_database
 from app.models import User
 
