@@ -2,9 +2,17 @@ from typing import Optional, List
 from pydantic import BaseModel, Field
 from datetime import datetime
 
-class CartItem(BaseModel):
+class CartItemBase(BaseModel):
     product_id: str
     quantity: int = Field(gt=0)
+
+class CartItemCreate(CartItemBase):
+    pass
+
+class CartItemUpdate(BaseModel):
+    quantity: Optional[int] = Field(None, gt=0)
+
+class CartItem(CartItemBase):
     price: float
     name: str
     image_url: Optional[str] = None
