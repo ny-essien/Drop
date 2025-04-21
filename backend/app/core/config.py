@@ -1,5 +1,4 @@
 from pydantic_settings import BaseSettings
-from pydantic import EmailStr
 from typing import Optional
 import os
 from dotenv import load_dotenv
@@ -8,38 +7,31 @@ from functools import lru_cache
 load_dotenv()
 
 class Settings(BaseSettings):
-    PROJECT_NAME: str = "Dropshipping API"
-    VERSION: str = "1.0.0"
-    API_V1_STR: str = "/api/v1"
+    # MongoDB settings
+    MONGODB_URI: str = "mongodb://localhost:27017"
+    MONGODB_DB: str = "dropshipping"
     
-    # Security
-    SECRET_KEY: str = "your-secret-key-here"  # Change this in production
-    ALGORITHM: str = "HS256"
+    # JWT settings
+    JWT_SECRET: str = "your-secret-key-here"  # Change this in production
+    JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     
-    # Database
-    MONGODB_URL: str = "mongodb://localhost:27017"
-    MONGODB_DB_NAME: str = "dropshipping"
+    # Redis settings
+    REDIS_HOST: str = "localhost"
+    REDIS_PORT: str = "6379"
     
-    # CORS
-    BACKEND_CORS_ORIGINS: list = ["http://localhost:3000"]
+    # Stripe settings
+    STRIPE_SECRET_KEY: Optional[str] = None
+    STRIPE_WEBHOOK_SECRET: Optional[str] = None
     
-    # AWS
+    # AWS settings
     AWS_ACCESS_KEY_ID: Optional[str] = None
     AWS_SECRET_ACCESS_KEY: Optional[str] = None
     AWS_REGION: str = "us-east-1"
     AWS_S3_BUCKET: Optional[str] = None
     
-    # Stripe
-    STRIPE_SECRET_KEY: Optional[str] = None
-    STRIPE_WEBHOOK_SECRET: Optional[str] = None
-    
-    # Redis
-    REDIS_URL: str = "redis://localhost:6379"
-    
-    # Celery
-    CELERY_BROKER_URL: str = "redis://localhost:6379/0"
-    CELERY_RESULT_BACKEND: str = "redis://localhost:6379/0"
+    # CORS settings
+    BACKEND_CORS_ORIGINS: list = ["http://localhost:3000"]
     
     # Server settings
     PORT: str = "5000"
@@ -64,6 +56,7 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"
         case_sensitive = True
+        extra = "allow"  # Allow extra fields in the environment
 
 @lru_cache()
 def get_settings() -> Settings:
