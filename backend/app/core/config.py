@@ -1,11 +1,12 @@
 from pydantic import AnyHttpUrl
 from pydantic_settings import BaseSettings
-from typing import Optional, List
+from typing import Optional, List, Union
 from pathlib import Path
 import os
 from dotenv import load_dotenv
 from functools import lru_cache
 from pydantic import validator
+import secrets
 
 load_dotenv()
 
@@ -13,7 +14,7 @@ class Settings(BaseSettings):
     PROJECT_NAME: str = "Dropshipping Backend"
     VERSION: str = "1.0.0"
     API_V1_STR: str = "/api/v1"
-    SECRET_KEY: str = "your-secret-key-here"  # Change in production
+    SECRET_KEY: str = secrets.token_urlsafe(32)
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 8  # 8 days
     ALGORITHM: str = "HS256"
     
@@ -41,7 +42,7 @@ class Settings(BaseSettings):
     # AWS Configuration
     AWS_ACCESS_KEY_ID: Optional[str] = None
     AWS_SECRET_ACCESS_KEY: Optional[str] = None
-    AWS_REGION: Optional[str] = None
+    AWS_REGION: str = "us-east-1"
     S3_BUCKET: Optional[str] = None
     
     # Redis settings
@@ -64,8 +65,11 @@ class Settings(BaseSettings):
     POSTGRES_PORT: str = "5432"
     DATABASE_URL: Optional[str] = None
 
+    # ML Service
+    ML_MODEL_PATH: str = "models"
+
     @validator("BACKEND_CORS_ORIGINS", pre=True)
-    def assemble_cors_origins(cls, v: str | List[str]) -> List[str] | str:
+    def assemble_cors_origins(cls, v: Union[str, List[str]]) -> Union[List[str], str]:
         if isinstance(v, str) and not v.startswith("["):
             return [i.strip() for i in v.split(",")]
         elif isinstance(v, (list, str)):
