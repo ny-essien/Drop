@@ -1,26 +1,29 @@
 from typing import List, Dict, Any, Optional
 from datetime import datetime
-from app.models import Notification
+from app.models import Notification, NotificationType, NotificationStatus
 from app.config import settings
 
 class NotificationService:
     async def create_notification(
         self,
-        type: str,
+        user_id: str,
+        type: NotificationType,
         title: str,
         message: str,
-        status: str = "pending",
+        status: NotificationStatus = NotificationStatus.UNREAD,
         error: Optional[str] = None,
         metadata: Dict[str, Any] = {}
     ) -> Notification:
         """Create a new notification"""
         notification = Notification(
+            user_id=user_id,
             type=type,
             title=title,
             message=message,
             status=status,
             error=error,
-            metadata=metadata
+            metadata=metadata,
+            created_at=datetime.utcnow()
         )
         await notification.save()
         return notification

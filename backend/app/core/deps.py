@@ -3,11 +3,12 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import jwt, JWTError
 from motor.motor_asyncio import AsyncIOMotorDatabase
+from bson import ObjectId
 from app.core.config import settings
 from app.models.user import User
 from app.db import get_database
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 
 async def get_current_user(
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -22,16 +23,17 @@ async def get_current_user(
         payload = jwt.decode(
             token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
         )
-        user_id: str = payload.get("sub")
-        if user_id is None:
+        email: str = payload.get("sub")
+        if email is None:
             raise credentials_exception
     except JWTError:
         raise credentials_exception
         
-    user_data = await db.users.find_one({"_id": user_id})
+    user_data = await db.users.find_one({"email": email})
     if user_data is None:
         raise credentials_exception
         
+    user_data["_id"] = str(user_data["_id"])
     return User(**user_data)
 
 async def get_current_admin(

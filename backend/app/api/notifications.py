@@ -1,11 +1,11 @@
-from fastapi import APIRouter, HTTPException, Depends, Query
+from fastapi import APIRouter, HTTPException, Depends, Query, Body
 from typing import Dict, Any, List, Optional
 from datetime import datetime
 from app.services.notification_service import NotificationService
-from app.models import Order, Notification
+from app.models import Order, Notification, NotificationType, NotificationStatus, NotificationCreate
 from app.core.deps import get_current_user
 
-router = APIRouter()
+router = APIRouter(prefix="/api/v1/notifications")
 notification_service = NotificationService()
 
 @router.post("/orders/{order_id}/confirm", response_model=Dict[str, Any])
@@ -94,17 +94,36 @@ async def send_low_stock_alert(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.get("/", response_model=List[Notification])
-async def get_notifications(
-    type: Optional[str] = Query(None, description="Filter by notification type"),
-    status: Optional[str] = Query(None, description="Filter by notification status"),
-    start_date: Optional[datetime] = Query(None, description="Filter by start date"),
-    end_date: Optional[datetime] = Query(None, description="Filter by end date"),
-    limit: int = Query(100, description="Number of notifications to return"),
-    skip: int = Query(0, description="Number of notifications to skip"),
+@router.post("/", response_model=Notification)
+async def create_notification(
+    notification: NotificationCreate,
     current_user: dict = Depends(get_current_user)
 ):
-    """Get notifications with optional filtering"""
+    """Create a new notification"""
+    try:
+        created_notification = await notification_service.create_notification(
+            user_id=current_user["id"],
+            type=notification.type,
+            title=notification.title,
+            message=notification.message,
+            status=notification.status,
+            metadata=notification.metadata
+        )
+        return created_notification
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/", response_model=List[Notification])
+async def get_notifications(
+    type: Optional[NotificationType] = None,
+    status: Optional[NotificationStatus] = None,
+    start_date: Optional[datetime] = None,
+    end_date: Optional[datetime] = None,
+    limit: int = 100,
+    skip: int = 0,
+    current_user: dict = Depends(get_current_user)
+):
+    """Get notifications with optional filters"""
     try:
         notifications = await notification_service.get_notifications(
             type=type,
@@ -129,32 +148,15 @@ async def get_notification(
         if not notification:
             raise HTTPException(status_code=404, detail="Notification not found")
         return notification
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@router.post("/", response_model=Notification)
-async def create_notification(
-    notification: Notification,
-    current_user: dict = Depends(get_current_user)
-):
-    """Create a new notification"""
-    try:
-        new_notification = await notification_service.create_notification(
-            type=notification.type,
-            title=notification.title,
-            message=notification.message,
-            status=notification.status,
-            error=notification.error,
-            metadata=notification.metadata
-        )
-        return new_notification
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.put("/{notification_id}/status", response_model=Notification)
 async def update_notification_status(
     notification_id: str,
-    status: str,
+    status: NotificationStatus,
     error: Optional[str] = None,
     current_user: dict = Depends(get_current_user)
 ):
@@ -165,9 +167,11 @@ async def update_notification_status(
             status=status,
             error=error
         )
+        if not notification:
+            raise HTTPException(status_code=404, detail="Notification not found")
         return notification
-    except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -178,10 +182,12 @@ async def delete_notification(
 ):
     """Delete a notification"""
     try:
-        await notification_service.delete_notification(notification_id)
-        return {"status": "success"}
-    except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        result = await notification_service.delete_notification(notification_id)
+        if not result:
+            raise HTTPException(status_code=404, detail="Notification not found")
+        return {"message": "Notification deleted successfully"}
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

@@ -1,5 +1,6 @@
 from typing import List, Optional
 from datetime import datetime
+from bson import ObjectId
 from app.db import get_database
 from app.models.product import Product
 from motor.motor_asyncio import AsyncIOMotorDatabase
@@ -11,32 +12,44 @@ class ProductService:
 
     async def create_product(self, product: Product) -> Product:
         """Create a new product"""
-        product_dict = product.model_dump()
+        product_dict = product.model_dump(exclude={"id"})
         result = await self.product_collection.insert_one(product_dict)
         product_dict["_id"] = str(result.inserted_id)
         return Product(**product_dict)
 
     async def get_product(self, product_id: str) -> Optional[Product]:
         """Get a product by ID"""
-        product = await self.product_collection.find_one({"_id": product_id})
-        return Product(**product) if product else None
+        try:
+            product = await self.product_collection.find_one({"_id": ObjectId(product_id)})
+            if product:
+                product["_id"] = str(product["_id"])
+                return Product(**product)
+            return None
+        except:
+            return None
 
     async def update_product(self, product_id: str, product: Product) -> Optional[Product]:
         """Update a product"""
-        product_dict = product.model_dump(exclude={"id"})
-        result = await self.product_collection.update_one(
-            {"_id": product_id},
-            {"$set": product_dict}
-        )
-        if result.modified_count:
-            updated_product = await self.get_product(product_id)
-            return updated_product
-        return None
+        try:
+            product_dict = product.model_dump(exclude={"id"})
+            result = await self.product_collection.update_one(
+                {"_id": ObjectId(product_id)},
+                {"$set": product_dict}
+            )
+            if result.modified_count:
+                updated_product = await self.get_product(product_id)
+                return updated_product
+            return None
+        except:
+            return None
 
     async def delete_product(self, product_id: str) -> bool:
         """Delete a product"""
-        result = await self.product_collection.delete_one({"_id": product_id})
-        return result.deleted_count > 0
+        try:
+            result = await self.product_collection.delete_one({"_id": ObjectId(product_id)})
+            return result.deleted_count > 0
+        except:
+            return False
 
     async def get_products(
         self,
@@ -53,4 +66,4 @@ class ProductService:
             ]
         cursor = self.product_collection.find(query).skip(skip).limit(limit)
         products = await cursor.to_list(length=limit)
-        return [Product(**product) for product in products] 
+        return [Product(**{**product, "_id": str(product["_id"])}) for product in products] 

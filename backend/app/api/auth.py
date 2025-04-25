@@ -10,8 +10,8 @@ from app.models.user import User, UserCreate, UserInDB
 from app.core.deps import get_current_user
 from app.core.security import verify_password, create_access_token, get_password_hash
 
-router = APIRouter()
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+router = APIRouter(prefix="/api/auth")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 
 @router.post("/register", response_model=dict)
 async def register(user: UserCreate, db = Depends(get_database)):
@@ -37,7 +37,7 @@ async def register(user: UserCreate, db = Depends(get_database)):
     
     return {"access_token": access_token, "token_type": "bearer"}
 
-@router.post("/token", response_model=dict)
+@router.post("/login", response_model=dict)
 async def login(form_data: OAuth2PasswordRequestForm = Depends(), db = Depends(get_database)):
     user = await db.users.find_one({"email": form_data.username})
     if not user or not verify_password(form_data.password, user["hashed_password"]):
@@ -51,4 +51,9 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), db = Depends(g
     access_token = create_access_token(
         data={"sub": user["email"]}, expires_delta=access_token_expires
     )
-    return {"access_token": access_token, "token_type": "bearer"} 
+    
+    return {"access_token": access_token, "token_type": "bearer"}
+
+@router.get("/me", response_model=User)
+async def get_current_user(current_user: dict = Depends(get_current_user)):
+    return current_user 
