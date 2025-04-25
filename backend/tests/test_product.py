@@ -1,109 +1,214 @@
 import pytest
 from fastapi.testclient import TestClient
-from app.models.product import Product
+from app.main import app
 from app.services.product_service import ProductService
-from app.api.products import router as product_router
-from datetime import datetime
+from app.models.product import Product
+from app.db import get_database
+import asyncio
 
 @pytest.fixture
-def product_service():
-    return ProductService()
+async def product_service():
+    db = await get_database()
+    return ProductService(db)
 
 @pytest.fixture
 def test_client():
-    from fastapi import FastAPI
-    app = FastAPI()
-    app.include_router(product_router)
     return TestClient(app)
 
-@pytest.fixture
-def sample_product():
-    return {
-        "name": "Test Product",
-        "description": "A test product for unit testing",
-        "price": 29.99,
-        "stock": 100,
-        "category": "Test Category",
-        "supplier_id": "test_supplier_123",
-        "created_at": datetime.utcnow(),
-        "updated_at": datetime.utcnow()
-    }
-
 class TestProductService:
-    def test_create_product(self, product_service, sample_product):
-        product = product_service.create_product(sample_product)
-        assert product.name == sample_product["name"]
-        assert product.price == sample_product["price"]
-        assert product.stock == sample_product["stock"]
+    @pytest.mark.asyncio
+    async def test_create_product(self, product_service):
+        product = Product(
+            name="Test Product",
+            description="Test Description",
+            price=10.99,
+            stock=100
+        )
+        created_product = await product_service.create_product(product)
+        assert created_product.name == product.name
+        assert created_product.description == product.description
+        assert created_product.price == product.price
+        assert created_product.stock == product.stock
 
-    def test_get_product(self, product_service, sample_product):
-        created_product = product_service.create_product(sample_product)
-        retrieved_product = product_service.get_product(str(created_product.id))
-        assert retrieved_product.name == sample_product["name"]
+    @pytest.mark.asyncio
+    async def test_get_product(self, product_service):
+        product = Product(
+            name="Test Product",
+            description="Test Description",
+            price=10.99,
+            stock=100
+        )
+        created_product = await product_service.create_product(product)
+        retrieved_product = await product_service.get_product(str(created_product.id))
+        assert retrieved_product is not None
+        assert retrieved_product.name == product.name
 
-    def test_update_product(self, product_service, sample_product):
-        created_product = product_service.create_product(sample_product)
-        updates = {"price": 39.99, "stock": 150}
-        updated_product = product_service.update_product(str(created_product.id), updates)
-        assert updated_product.price == 39.99
-        assert updated_product.stock == 150
+    @pytest.mark.asyncio
+    async def test_update_product(self, product_service):
+        product = Product(
+            name="Test Product",
+            description="Test Description",
+            price=10.99,
+            stock=100
+        )
+        created_product = await product_service.create_product(product)
+        updated_product = Product(
+            name="Updated Product",
+            description="Updated Description",
+            price=15.99,
+            stock=50
+        )
+        result = await product_service.update_product(str(created_product.id), updated_product)
+        assert result is not None
+        assert result.name == updated_product.name
+        assert result.description == updated_product.description
+        assert result.price == updated_product.price
+        assert result.stock == updated_product.stock
 
-    def test_delete_product(self, product_service, sample_product):
-        created_product = product_service.create_product(sample_product)
-        product_service.delete_product(str(created_product.id))
-        with pytest.raises(Exception):
-            product_service.get_product(str(created_product.id))
+    @pytest.mark.asyncio
+    async def test_delete_product(self, product_service):
+        product = Product(
+            name="Test Product",
+            description="Test Description",
+            price=10.99,
+            stock=100
+        )
+        created_product = await product_service.create_product(product)
+        result = await product_service.delete_product(str(created_product.id))
+        assert result is True
+        deleted_product = await product_service.get_product(str(created_product.id))
+        assert deleted_product is None
 
-    def test_list_products(self, product_service, sample_product):
-        product_service.create_product(sample_product)
-        products = product_service.list_products()
-        assert len(products) > 0
+    @pytest.mark.asyncio
+    async def test_get_products(self, product_service):
+        # Create multiple products
+        products = [
+            Product(name=f"Product {i}", description=f"Description {i}", price=10.99, stock=100)
+            for i in range(5)
+        ]
+        for product in products:
+            await product_service.create_product(product)
+
+        # Test listing all products
+        listed_products = await product_service.get_products()
+        assert len(listed_products) >= 5
+
+        # Test search functionality
+        searched_products = await product_service.get_products(search="Product 1")
+        assert len(searched_products) > 0
+        assert any(p.name == "Product 1" for p in searched_products)
 
 class TestProductAPI:
-    def test_create_product_api(self, test_client, sample_product):
-        response = test_client.post("/products/", json=sample_product)
-        assert response.status_code == 201
+    def test_create_product(self, test_client):
+        response = test_client.post(
+            "/api/products/",
+            json={
+                "name": "Test Product",
+                "description": "Test Description",
+                "price": 10.99,
+                "stock": 100
+            }
+        )
+        assert response.status_code == 200
         data = response.json()
-        assert data["name"] == sample_product["name"]
+        assert data["name"] == "Test Product"
+        assert data["description"] == "Test Description"
+        assert data["price"] == 10.99
+        assert data["stock"] == 100
 
-    def test_get_product_api(self, test_client, sample_product):
-        create_response = test_client.post("/products/", json=sample_product)
+    def test_get_product(self, test_client):
+        # First create a product
+        create_response = test_client.post(
+            "/api/products/",
+            json={
+                "name": "Test Product",
+                "description": "Test Description",
+                "price": 10.99,
+                "stock": 100
+            }
+        )
         product_id = create_response.json()["id"]
-        
-        response = test_client.get(f"/products/{product_id}")
+
+        # Then get it
+        response = test_client.get(f"/api/products/{product_id}")
         assert response.status_code == 200
         data = response.json()
-        assert data["name"] == sample_product["name"]
+        assert data["name"] == "Test Product"
+        assert data["id"] == product_id
 
-    def test_update_product_api(self, test_client, sample_product):
-        create_response = test_client.post("/products/", json=sample_product)
+    def test_update_product(self, test_client):
+        # First create a product
+        create_response = test_client.post(
+            "/api/products/",
+            json={
+                "name": "Test Product",
+                "description": "Test Description",
+                "price": 10.99,
+                "stock": 100
+            }
+        )
         product_id = create_response.json()["id"]
-        
-        updates = {"price": 39.99, "stock": 150}
-        response = test_client.put(f"/products/{product_id}", json=updates)
+
+        # Then update it
+        response = test_client.put(
+            f"/api/products/{product_id}",
+            json={
+                "name": "Updated Product",
+                "description": "Updated Description",
+                "price": 15.99,
+                "stock": 50
+            }
+        )
         assert response.status_code == 200
         data = response.json()
-        assert data["price"] == 39.99
-        assert data["stock"] == 150
+        assert data["name"] == "Updated Product"
+        assert data["price"] == 15.99
+        assert data["stock"] == 50
 
-    def test_delete_product_api(self, test_client, sample_product):
-        create_response = test_client.post("/products/", json=sample_product)
+    def test_delete_product(self, test_client):
+        # First create a product
+        create_response = test_client.post(
+            "/api/products/",
+            json={
+                "name": "Test Product",
+                "description": "Test Description",
+                "price": 10.99,
+                "stock": 100
+            }
+        )
         product_id = create_response.json()["id"]
-        
-        response = test_client.delete(f"/products/{product_id}")
-        assert response.status_code == 204
 
-    def test_list_products_api(self, test_client, sample_product):
-        test_client.post("/products/", json=sample_product)
-        response = test_client.get("/products/")
+        # Then delete it
+        response = test_client.delete(f"/api/products/{product_id}")
+        assert response.status_code == 200
+        assert response.json()["message"] == "Product deleted successfully"
+
+        # Verify it's deleted
+        get_response = test_client.get(f"/api/products/{product_id}")
+        assert get_response.status_code == 404
+
+    def test_list_products(self, test_client):
+        # Create multiple products
+        for i in range(3):
+            test_client.post(
+                "/api/products/",
+                json={
+                    "name": f"Product {i}",
+                    "description": f"Description {i}",
+                    "price": 10.99,
+                    "stock": 100
+                }
+            )
+
+        # List all products
+        response = test_client.get("/api/products/")
         assert response.status_code == 200
         data = response.json()
-        assert len(data) > 0
+        assert len(data) >= 3
 
-    def test_search_products_api(self, test_client, sample_product):
-        test_client.post("/products/", json=sample_product)
-        response = test_client.get("/products/search?query=Test")
-        assert response.status_code == 200
-        data = response.json()
-        assert len(data) > 0
-        assert "Test" in data[0]["name"] 
+        # Test search
+        search_response = test_client.get("/api/products/?search=Product 1")
+        assert search_response.status_code == 200
+        search_data = search_response.json()
+        assert len(search_data) > 0
+        assert any(p["name"] == "Product 1" for p in search_data) 
