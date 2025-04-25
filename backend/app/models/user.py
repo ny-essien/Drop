@@ -1,6 +1,7 @@
 from typing import Optional
 from pydantic import BaseModel, EmailStr, Field
 from datetime import datetime
+from bson import ObjectId
 
 class UserBase(BaseModel):
     email: EmailStr
@@ -20,6 +21,10 @@ class User(UserBase):
 
     class Config:
         populate_by_name = True
+        json_encoders = {
+            ObjectId: lambda oid: str(oid),
+            datetime: lambda dt: dt.isoformat()
+        }
         json_schema_extra = {
             "example": {
                 "_id": "user123",
