@@ -1,7 +1,7 @@
 from typing import List, Optional, Dict, Any
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from bson import ObjectId
-from app.models import Product, Supplier
+from app.models import Product, Supplier, ProductCreate, ProductUpdate
 import httpx
 from datetime import datetime
 
@@ -11,37 +11,56 @@ class ProductService:
         self.collection = db.products
         self.supplier_collection = db.suppliers
 
-    async def get_products(self, skip: int = 0, limit: int = 10) -> List[Product]:
-        cursor = self.collection.find().skip(skip).limit(limit)
+    async def get_products(
+        self,
+        skip: int = 0,
+        limit: int = 100,
+        category: Optional[str] = None,
+        supplier_id: Optional[str] = None
+    ) -> List[Product]:
+        """Get all products with optional filtering"""
+        query = {}
+        if category:
+            query["category"] = category
+        if supplier_id:
+            query["supplier_id"] = supplier_id
+        
+        cursor = self.collection.find(query).skip(skip).limit(limit)
         products = await cursor.to_list(length=limit)
         return [Product(**product) for product in products]
 
     async def get_product(self, product_id: str) -> Optional[Product]:
-        if not ObjectId.is_valid(product_id):
-            return None
+        """Get a product by ID"""
         product = await self.collection.find_one({"_id": ObjectId(product_id)})
-        return Product(**product) if product else None
+        if product:
+            return Product(**product)
+        return None
 
-    async def create_product(self, product: Product) -> Product:
-        product_dict = product.dict(exclude={"id"})
+    async def create_product(self, product: ProductCreate) -> Product:
+        """Create a new product"""
+        product_dict = product.model_dump()
         result = await self.collection.insert_one(product_dict)
         created_product = await self.collection.find_one({"_id": result.inserted_id})
         return Product(**created_product)
 
-    async def update_product(self, product_id: str, product: Product) -> Optional[Product]:
-        if not ObjectId.is_valid(product_id):
+    async def update_product(self, product_id: str, product: ProductUpdate) -> Optional[Product]:
+        """Update a product"""
+        update_data = product.model_dump(exclude_unset=True)
+        if not update_data:
             return None
-        product_dict = product.dict(exclude={"id"})
-        await self.collection.update_one(
+        
+        result = await self.collection.update_one(
             {"_id": ObjectId(product_id)},
-            {"$set": product_dict}
+            {"$set": update_data}
         )
-        updated_product = await self.collection.find_one({"_id": ObjectId(product_id)})
-        return Product(**updated_product) if updated_product else None
+        
+        if result.modified_count:
+            updated_product = await self.collection.find_one({"_id": ObjectId(product_id)})
+            return Product(**updated_product)
+        return None
 
     async def delete_product(self, product_id: str) -> bool:
-        if not ObjectId.is_valid(product_id):
-            return False
+        """Delete a product"""
         result = await self.collection.delete_one({"_id": ObjectId(product_id)})
         return result.deleted_count > 0
 

@@ -4,7 +4,7 @@ from jose import JWTError, jwt
 from passlib.context import CryptContext
 from datetime import datetime, timedelta
 from typing import Optional
-from app.config import settings
+from app.core.config import settings
 import re
 
 # Password hashing

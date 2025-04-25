@@ -1,6 +1,7 @@
-from typing import Optional, List
+from typing import Optional, Dict, Any
 from pydantic import BaseModel, Field
 from datetime import datetime
+from bson import ObjectId
 from enum import Enum
 
 class NotificationType(str, Enum):
@@ -16,29 +17,32 @@ class NotificationStatus(str, Enum):
     ARCHIVED = "archived"
 
 class Notification(BaseModel):
-    id: str = Field(alias="_id")
+    id: str = Field(default_factory=lambda: str(ObjectId()), alias="_id")
     user_id: str
     type: NotificationType
     title: str
     message: str
     status: NotificationStatus = NotificationStatus.UNREAD
-    data: Optional[dict] = None
+    error: Optional[str] = None
+    metadata: Dict[str, Any] = {}
     created_at: datetime = Field(default_factory=datetime.utcnow)
-    read_at: Optional[datetime] = None
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
 
     class Config:
         populate_by_name = True
+        json_encoders = {
+            datetime: lambda dt: dt.isoformat()
+        }
         json_schema_extra = {
             "example": {
-                "_id": "notification123",
                 "user_id": "user123",
                 "type": "order",
-                "title": "Order Confirmed",
-                "message": "Your order #12345 has been confirmed",
+                "title": "Order Status Update",
+                "message": "Your order has been shipped",
                 "status": "unread",
-                "data": {"order_id": "12345"},
-                "created_at": "2023-01-01T00:00:00",
-                "read_at": None
+                "metadata": {
+                    "order_id": "order123"
+                }
             }
         }
 
@@ -47,8 +51,11 @@ class NotificationCreate(BaseModel):
     type: NotificationType
     title: str
     message: str
-    data: Optional[dict] = None
+    status: NotificationStatus = NotificationStatus.UNREAD
+    error: Optional[str] = None
+    metadata: Dict[str, Any] = {}
 
 class NotificationUpdate(BaseModel):
     status: Optional[NotificationStatus] = None
-    read_at: Optional[datetime] = None 
+    error: Optional[str] = None
+    metadata: Optional[Dict[str, Any]] = None 

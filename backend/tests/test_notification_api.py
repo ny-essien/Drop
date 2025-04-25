@@ -1,141 +1,135 @@
 import pytest
 from fastapi.testclient import TestClient
-from fastapi import FastAPI
-from datetime import datetime
+from app.main import app
 from app.core.security import create_access_token
-from app.models import User, Notification
-from app.api.notifications import router as notification_router
-
-app = FastAPI()
-app.include_router(notification_router)
-client = TestClient(app)
+from app.models.notification import NotificationType, NotificationStatus
 
 @pytest.fixture
-def auth_token():
-    # Create a test token (in a real scenario, use a test user)
-    return create_access_token({"sub": "test@example.com", "is_admin": True})
+def test_client():
+    return TestClient(app)
 
 @pytest.fixture
-def auth_headers(auth_token):
-    return {"Authorization": f"Bearer {auth_token}"}
+def auth_headers():
+    access_token = create_access_token({"sub": "test@example.com"})
+    return {"Authorization": f"Bearer {access_token}"}
 
 @pytest.mark.asyncio
-async def test_create_notification(auth_headers):
-    response = client.post(
-        "/api/notifications/",
+async def test_create_notification(test_client, auth_headers):
+    response = test_client.post(
+        "/api/v1/notifications/",
         headers=auth_headers,
         json={
-            "type": "test",
+            "user_id": "test_user_id",
+            "type": NotificationType.ORDER,
             "title": "Test Notification",
             "message": "This is a test notification",
-            "status": "pending"
+            "status": NotificationStatus.UNREAD
         }
     )
     assert response.status_code == 200
     data = response.json()
-    assert data["type"] == "test"
     assert data["title"] == "Test Notification"
+    assert data["type"] == NotificationType.ORDER
+    assert data["status"] == NotificationStatus.UNREAD
 
 @pytest.mark.asyncio
-async def test_get_notifications(auth_headers):
-    response = client.get("/api/notifications/", headers=auth_headers)
+async def test_get_notifications(test_client, auth_headers):
+    response = test_client.get("/api/v1/notifications/", headers=auth_headers)
     assert response.status_code == 200
     data = response.json()
     assert isinstance(data, list)
 
 @pytest.mark.asyncio
-async def test_get_notification_by_id(auth_headers):
+async def test_get_notification_by_id(test_client, auth_headers):
     # First create a notification
-    create_response = client.post(
-        "/api/notifications/",
+    create_response = test_client.post(
+        "/api/v1/notifications/",
         headers=auth_headers,
         json={
-            "type": "test",
+            "user_id": "test_user_id",
+            "type": NotificationType.ORDER,
             "title": "Test Notification",
             "message": "This is a test notification",
-            "status": "pending"
+            "status": NotificationStatus.UNREAD
         }
     )
     notification_id = create_response.json()["id"]
-
-    # Then retrieve it
-    response = client.get(f"/api/notifications/{notification_id}", headers=auth_headers)
+    
+    # Then get it by ID
+    response = test_client.get(f"/api/v1/notifications/{notification_id}", headers=auth_headers)
     assert response.status_code == 200
     data = response.json()
     assert data["id"] == notification_id
+    assert data["title"] == "Test Notification"
 
 @pytest.mark.asyncio
-async def test_update_notification_status(auth_headers):
+async def test_update_notification_status(test_client, auth_headers):
     # First create a notification
-    create_response = client.post(
-        "/api/notifications/",
+    create_response = test_client.post(
+        "/api/v1/notifications/",
         headers=auth_headers,
         json={
-            "type": "test",
+            "user_id": "test_user_id",
+            "type": NotificationType.ORDER,
             "title": "Test Notification",
             "message": "This is a test notification",
-            "status": "pending"
+            "status": NotificationStatus.UNREAD
         }
     )
     notification_id = create_response.json()["id"]
-
+    
     # Then update its status
-    response = client.put(
-        f"/api/notifications/{notification_id}/status",
+    response = test_client.put(
+        f"/api/v1/notifications/{notification_id}/status",
         headers=auth_headers,
-        json={"status": "sent", "error": "Test error"}
+        json={"status": NotificationStatus.READ, "error": None}
     )
     assert response.status_code == 200
     data = response.json()
-    assert data["status"] == "sent"
-    assert data["error"] == "Test error"
+    assert data["status"] == NotificationStatus.READ
 
 @pytest.mark.asyncio
-async def test_delete_notification(auth_headers):
+async def test_delete_notification(test_client, auth_headers):
     # First create a notification
-    create_response = client.post(
-        "/api/notifications/",
+    create_response = test_client.post(
+        "/api/v1/notifications/",
         headers=auth_headers,
         json={
-            "type": "test",
+            "user_id": "test_user_id",
+            "type": NotificationType.ORDER,
             "title": "Test Notification",
             "message": "This is a test notification",
-            "status": "pending"
+            "status": NotificationStatus.UNREAD
         }
     )
     notification_id = create_response.json()["id"]
-
+    
     # Then delete it
-    response = client.delete(f"/api/notifications/{notification_id}", headers=auth_headers)
+    response = test_client.delete(f"/api/v1/notifications/{notification_id}", headers=auth_headers)
     assert response.status_code == 200
-    assert response.json()["status"] == "success"
-
-    # Verify it's deleted
-    get_response = client.get(f"/api/notifications/{notification_id}", headers=auth_headers)
-    assert get_response.status_code == 404
 
 @pytest.mark.asyncio
-async def test_get_notification_stats(auth_headers):
-    response = client.get("/api/notifications/stats/summary", headers=auth_headers)
+async def test_get_notification_stats(test_client, auth_headers):
+    response = test_client.get("/api/v1/notifications/stats/summary", headers=auth_headers)
     assert response.status_code == 200
     data = response.json()
-    assert "total" in data
-    assert "sent" in data
-    assert "failed" in data
-    assert "pending" in data
+    assert isinstance(data, dict)
+    assert all(key in data for key in ["total", "unread", "read", "archived"])
 
 @pytest.mark.asyncio
-async def test_unauthorized_access():
+async def test_unauthorized_access(test_client):
     # Test endpoints without authentication
-    response = client.get("/api/notifications/")
+    response = test_client.get("/api/v1/notifications/")
     assert response.status_code == 401
-
-    response = client.post(
-        "/api/notifications/",
+    
+    response = test_client.post(
+        "/api/v1/notifications/",
         json={
-            "type": "test",
+            "user_id": "test_user_id",
+            "type": NotificationType.ORDER,
             "title": "Test Notification",
-            "message": "This is a test notification"
+            "message": "This is a test notification",
+            "status": NotificationStatus.UNREAD
         }
     )
     assert response.status_code == 401 

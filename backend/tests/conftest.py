@@ -5,7 +5,6 @@ import os
 from unittest.mock import MagicMock
 from fastapi.testclient import TestClient
 from motor.motor_asyncio import AsyncIOMotorClient
-from pymongo import MongoClient
 from datetime import datetime, timedelta
 from jose import jwt
 
@@ -21,7 +20,6 @@ sys.modules['app.services.notification'] = MagicMock()
 from app.main import app
 from app.core.config import settings
 from app.db import get_database
-from app.models import User
 
 @pytest.fixture(scope="session")
 def event_loop():
@@ -30,19 +28,23 @@ def event_loop():
     loop.close()
 
 @pytest.fixture(scope="session")
-def test_db():
-    # Use a separate test database
-    client = MongoClient(settings.MONGODB_URI)
+async def mongo_client():
+    client = AsyncIOMotorClient(settings.MONGODB_URI)
+    yield client
+    await client.close()
+
+@pytest.fixture(scope="session")
+async def test_db(mongo_client):
     db_name = "test_" + settings.MONGODB_DB
-    db = client[db_name]
+    db = mongo_client[db_name]
     yield db
-    # Cleanup after tests
-    client.drop_database(db_name)
-    client.close()
+    await mongo_client.drop_database(db_name)
 
 @pytest.fixture
 async def test_app(test_db):
-    app.dependency_overrides[get_database] = lambda: test_db
+    async def override_get_database():
+        return test_db
+    app.dependency_overrides[get_database] = override_get_database
     with TestClient(app) as client:
         yield client
 
@@ -77,7 +79,7 @@ def test_token(test_user):
         "user_id": test_user["_id"]
     }
     token = jwt.encode(data, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
-    return token
+    return f"Bearer {token}"
 
 @pytest.fixture
 def admin_token(test_admin):
@@ -88,7 +90,7 @@ def admin_token(test_admin):
         "user_id": test_admin["_id"]
     }
     token = jwt.encode(data, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
-    return token
+    return f"Bearer {token}"
 
 @pytest.fixture
 async def setup_test_db(test_db, test_user, test_admin):
@@ -97,4 +99,8 @@ async def setup_test_db(test_db, test_user, test_admin):
     await test_db.users.insert_one(test_admin)
     yield
     # Cleanup
-    await test_db.users.delete_many({}) 
+    await test_db.users.delete_many({})
+
+@pytest.fixture
+def client():
+    return TestClient(app) 
