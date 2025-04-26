@@ -23,18 +23,21 @@ from app.db import get_database
 
 @pytest.fixture(scope="session")
 def event_loop():
-    loop = asyncio.get_event_loop()
+    """Create an instance of the default event loop for each test case."""
+    loop = asyncio.get_event_loop_policy().new_event_loop()
     yield loop
     loop.close()
 
 @pytest.fixture(scope="session")
-async def mongo_client():
-    client = AsyncIOMotorClient(settings.MONGODB_URI)
+async def mongo_client(event_loop):
+    """Create a MongoDB client for testing."""
+    client = AsyncIOMotorClient(settings.MONGODB_URI, io_loop=event_loop)
     yield client
     await client.close()
 
 @pytest.fixture(scope="session")
 async def test_db(mongo_client):
+    """Create a test database."""
     db_name = "test_" + settings.MONGODB_DB
     db = mongo_client[db_name]
     yield db
@@ -42,6 +45,7 @@ async def test_db(mongo_client):
 
 @pytest.fixture
 async def test_app(test_db):
+    """Create a test app with overridden database."""
     async def override_get_database():
         return test_db
     app.dependency_overrides[get_database] = override_get_database
@@ -50,6 +54,7 @@ async def test_app(test_db):
 
 @pytest.fixture
 def test_user():
+    """Create a test user."""
     return {
         "_id": "test_user_id",
         "email": "test@example.com",
@@ -61,6 +66,7 @@ def test_user():
 
 @pytest.fixture
 def test_admin():
+    """Create a test admin user."""
     return {
         "_id": "test_admin_id",
         "email": "admin@example.com",
@@ -72,6 +78,7 @@ def test_admin():
 
 @pytest.fixture
 def test_token(test_user):
+    """Create a test JWT token."""
     expire = datetime.utcnow() + timedelta(minutes=30)
     data = {
         "sub": test_user["email"],
@@ -83,6 +90,7 @@ def test_token(test_user):
 
 @pytest.fixture
 def admin_token(test_admin):
+    """Create a test admin JWT token."""
     expire = datetime.utcnow() + timedelta(minutes=30)
     data = {
         "sub": test_admin["email"],
@@ -93,13 +101,22 @@ def admin_token(test_admin):
     return f"Bearer {token}"
 
 @pytest.fixture
+def auth_headers(test_token):
+    """Create authentication headers for testing."""
+    return {"Authorization": test_token}
+
+@pytest.fixture
 async def setup_test_db(test_db, test_user, test_admin):
+    """Set up the test database with initial data."""
     # Insert test users
     await test_db.users.insert_one(test_user)
     await test_db.users.insert_one(test_admin)
     yield
-    # Cleanup
+    # Clean up
     await test_db.users.delete_many({})
+    await test_db.notifications.delete_many({})
+    await test_db.orders.delete_many({})
+    await test_db.products.delete_many({})
 
 @pytest.fixture
 def client():

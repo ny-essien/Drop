@@ -101,15 +101,16 @@ async def create_notification(
 ):
     """Create a new notification"""
     try:
-        created_notification = await notification_service.create_notification(
-            user_id=current_user["id"],
+        result = await notification_service.create_notification(
+            user_id=current_user["_id"],
             type=notification.type,
             title=notification.title,
             message=notification.message,
             status=notification.status,
+            error=notification.error,
             metadata=notification.metadata
         )
-        return created_notification
+        return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -123,9 +124,10 @@ async def get_notifications(
     skip: int = 0,
     current_user: dict = Depends(get_current_user)
 ):
-    """Get notifications with optional filters"""
+    """Get notifications with optional filtering"""
     try:
         notifications = await notification_service.get_notifications(
+            user_id=current_user["_id"],
             type=type,
             status=status,
             start_date=start_date,
@@ -147,6 +149,8 @@ async def get_notification(
         notification = await notification_service.get_notification(notification_id)
         if not notification:
             raise HTTPException(status_code=404, detail="Notification not found")
+        if notification.user_id != current_user["_id"]:
+            raise HTTPException(status_code=403, detail="Not authorized to access this notification")
         return notification
     except HTTPException:
         raise
@@ -156,20 +160,26 @@ async def get_notification(
 @router.put("/{notification_id}/status", response_model=Notification)
 async def update_notification_status(
     notification_id: str,
-    status: NotificationStatus,
-    error: Optional[str] = None,
+    status: NotificationStatus = Body(...),
+    error: Optional[str] = Body(None),
     current_user: dict = Depends(get_current_user)
 ):
     """Update notification status"""
     try:
-        notification = await notification_service.update_notification_status(
-            notification_id=notification_id,
-            status=status,
-            error=error
-        )
+        notification = await notification_service.get_notification(notification_id)
         if not notification:
             raise HTTPException(status_code=404, detail="Notification not found")
-        return notification
+        if notification.user_id != current_user["_id"]:
+            raise HTTPException(status_code=403, detail="Not authorized to update this notification")
+        
+        updated_notification = await notification_service.update_notification_status(
+            notification_id,
+            status,
+            error
+        )
+        if not updated_notification:
+            raise HTTPException(status_code=404, detail="Notification not found")
+        return updated_notification
     except HTTPException:
         raise
     except Exception as e:
@@ -182,8 +192,14 @@ async def delete_notification(
 ):
     """Delete a notification"""
     try:
-        result = await notification_service.delete_notification(notification_id)
-        if not result:
+        notification = await notification_service.get_notification(notification_id)
+        if not notification:
+            raise HTTPException(status_code=404, detail="Notification not found")
+        if notification.user_id != current_user["_id"]:
+            raise HTTPException(status_code=403, detail="Not authorized to delete this notification")
+        
+        success = await notification_service.delete_notification(notification_id)
+        if not success:
             raise HTTPException(status_code=404, detail="Notification not found")
         return {"message": "Notification deleted successfully"}
     except HTTPException:
@@ -195,7 +211,8 @@ async def delete_notification(
 async def get_notification_stats(current_user: dict = Depends(get_current_user)):
     """Get notification statistics"""
     try:
-        stats = await notification_service.get_notification_stats()
+        stats = await notification_service.get_notification_stats(current_user["_id"])
         return stats
     except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e)) 
         raise HTTPException(status_code=500, detail=str(e)) 
