@@ -2,8 +2,10 @@ from fastapi import APIRouter, HTTPException, Depends, Query, Body
 from typing import Dict, Any, List, Optional
 from datetime import datetime
 from app.services.notification_service import NotificationService
-from app.models import Order, Notification, NotificationType, NotificationStatus, NotificationCreate
+from app.models import Order, Notification, NotificationType, NotificationStatus, NotificationCreate, NotificationUpdate
 from app.core.deps import get_current_user
+from app.core.security import get_current_user
+from app.models.user import User
 
 router = APIRouter(prefix="/api/v1/notifications")
 notification_service = NotificationService()
@@ -94,15 +96,15 @@ async def send_low_stock_alert(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.post("/", response_model=Notification)
+@router.post("/", response_model=Notification, status_code=status.HTTP_201_CREATED)
 async def create_notification(
     notification: NotificationCreate,
-    current_user: dict = Depends(get_current_user)
+    current_user: User = Depends(get_current_user)
 ):
     """Create a new notification"""
     try:
-        result = await notification_service.create_notification(
-            user_id=current_user["_id"],
+        return await notification_service.create_notification(
+            user_id=current_user.id,
             type=notification.type,
             title=notification.title,
             message=notification.message,
@@ -110,109 +112,146 @@ async def create_notification(
             error=notification.error,
             metadata=notification.metadata
         )
-        return result
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to create notification: {str(e)}"
+        )
 
 @router.get("/", response_model=List[Notification])
 async def get_notifications(
     type: Optional[NotificationType] = None,
     status: Optional[NotificationStatus] = None,
-    start_date: Optional[datetime] = None,
-    end_date: Optional[datetime] = None,
-    limit: int = 100,
     skip: int = 0,
-    current_user: dict = Depends(get_current_user)
+    limit: int = 100,
+    current_user: User = Depends(get_current_user)
 ):
-    """Get notifications with optional filtering"""
+    """Get notifications for the current user"""
     try:
-        notifications = await notification_service.get_notifications(
-            user_id=current_user["_id"],
+        return await notification_service.get_notifications(
+            user_id=current_user.id,
             type=type,
             status=status,
-            start_date=start_date,
-            end_date=end_date,
-            limit=limit,
-            skip=skip
+            skip=skip,
+            limit=limit
         )
-        return notifications
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get notifications: {str(e)}"
+        )
 
 @router.get("/{notification_id}", response_model=Notification)
 async def get_notification(
     notification_id: str,
-    current_user: dict = Depends(get_current_user)
+    current_user: User = Depends(get_current_user)
 ):
-    """Get a specific notification by ID"""
+    """Get a specific notification"""
     try:
         notification = await notification_service.get_notification(notification_id)
         if not notification:
-            raise HTTPException(status_code=404, detail="Notification not found")
-        if notification.user_id != current_user["_id"]:
-            raise HTTPException(status_code=403, detail="Not authorized to access this notification")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Notification not found"
+            )
+        if notification.user_id != current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Not authorized to access this notification"
+            )
         return notification
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get notification: {str(e)}"
+        )
 
-@router.put("/{notification_id}/status", response_model=Notification)
-async def update_notification_status(
+@router.patch("/{notification_id}", response_model=Notification)
+async def update_notification(
     notification_id: str,
-    status: NotificationStatus = Body(...),
-    error: Optional[str] = Body(None),
-    current_user: dict = Depends(get_current_user)
+    notification_update: NotificationUpdate,
+    current_user: User = Depends(get_current_user)
 ):
-    """Update notification status"""
+    """Update a notification"""
     try:
+        # First check if the notification exists and belongs to the user
         notification = await notification_service.get_notification(notification_id)
         if not notification:
-            raise HTTPException(status_code=404, detail="Notification not found")
-        if notification.user_id != current_user["_id"]:
-            raise HTTPException(status_code=403, detail="Not authorized to update this notification")
-        
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Notification not found"
+            )
+        if notification.user_id != current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Not authorized to update this notification"
+            )
+            
+        # Update the notification status
         updated_notification = await notification_service.update_notification_status(
-            notification_id,
-            status,
-            error
+            notification_id=notification_id,
+            status=notification_update.status
         )
         if not updated_notification:
-            raise HTTPException(status_code=404, detail="Notification not found")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to update notification"
+            )
         return updated_notification
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to update notification: {str(e)}"
+        )
 
-@router.delete("/{notification_id}")
+@router.delete("/{notification_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_notification(
     notification_id: str,
-    current_user: dict = Depends(get_current_user)
+    current_user: User = Depends(get_current_user)
 ):
     """Delete a notification"""
     try:
+        # First check if the notification exists and belongs to the user
         notification = await notification_service.get_notification(notification_id)
         if not notification:
-            raise HTTPException(status_code=404, detail="Notification not found")
-        if notification.user_id != current_user["_id"]:
-            raise HTTPException(status_code=403, detail="Not authorized to delete this notification")
-        
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Notification not found"
+            )
+        if notification.user_id != current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Not authorized to delete this notification"
+            )
+            
+        # Delete the notification
         success = await notification_service.delete_notification(notification_id)
         if not success:
-            raise HTTPException(status_code=404, detail="Notification not found")
-        return {"message": "Notification deleted successfully"}
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to delete notification"
+            )
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to delete notification: {str(e)}"
+        )
 
-@router.get("/stats/summary")
-async def get_notification_stats(current_user: dict = Depends(get_current_user)):
-    """Get notification statistics"""
+@router.get("/stats", response_model=dict)
+async def get_notification_stats(
+    current_user: User = Depends(get_current_user)
+):
+    """Get notification statistics for the current user"""
     try:
-        stats = await notification_service.get_notification_stats(current_user["_id"])
-        return stats
+        return await notification_service.get_notification_stats(current_user.id)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e)) 
-        raise HTTPException(status_code=500, detail=str(e)) 
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get notification stats: {str(e)}"
+        ) 

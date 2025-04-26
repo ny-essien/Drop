@@ -29,28 +29,24 @@ def event_loop():
     loop.close()
 
 @pytest.fixture(scope="session")
-async def mongo_client(event_loop):
+async def mongo_client():
     """Create a MongoDB client for testing."""
-    client = AsyncIOMotorClient(settings.MONGODB_URI, io_loop=event_loop)
+    client = AsyncIOMotorClient(settings.MONGODB_URL)
     yield client
-    await client.close()
+    client.close()
 
 @pytest.fixture(scope="session")
 async def test_db(mongo_client):
     """Create a test database."""
-    db_name = "test_" + settings.MONGODB_DB
+    db_name = "test_" + settings.DATABASE_NAME
     db = mongo_client[db_name]
     yield db
     await mongo_client.drop_database(db_name)
 
-@pytest.fixture
-async def test_app(test_db):
-    """Create a test app with overridden database."""
-    async def override_get_database():
-        return test_db
-    app.dependency_overrides[get_database] = override_get_database
-    with TestClient(app) as client:
-        yield client
+@pytest.fixture(scope="session")
+def test_app():
+    """Create a test client."""
+    return TestClient(app)
 
 @pytest.fixture
 def test_user():
@@ -100,10 +96,10 @@ def admin_token(test_admin):
     token = jwt.encode(data, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
     return f"Bearer {token}"
 
-@pytest.fixture
-def auth_headers(test_token):
+@pytest.fixture(scope="session")
+def auth_headers():
     """Create authentication headers for testing."""
-    return {"Authorization": test_token}
+    return {"Authorization": "Bearer test_token"}
 
 @pytest.fixture
 async def setup_test_db(test_db, test_user, test_admin):
