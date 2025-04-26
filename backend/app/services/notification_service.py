@@ -1,7 +1,8 @@
 from typing import List, Dict, Any, Optional
 from datetime import datetime
-from app.models import Notification, NotificationType, NotificationStatus
-from app.config import settings
+from app.models.notification import Notification, NotificationType, NotificationStatus
+from app.db.mongodb import get_database
+from bson import ObjectId
 
 class NotificationService:
     async def create_notification(
@@ -15,18 +16,21 @@ class NotificationService:
         metadata: Dict[str, Any] = {}
     ) -> Notification:
         """Create a new notification"""
-        notification = Notification(
-            user_id=user_id,
-            type=type,
-            title=title,
-            message=message,
-            status=status,
-            error=error,
-            metadata=metadata,
-            created_at=datetime.utcnow()
-        )
-        await notification.save()
-        return notification
+        db = await get_database()
+        notification_data = {
+            "user_id": user_id,
+            "type": type,
+            "title": title,
+            "message": message,
+            "status": status,
+            "error": error,
+            "metadata": metadata,
+            "created_at": datetime.utcnow(),
+            "updated_at": datetime.utcnow()
+        }
+        result = await db.notifications.insert_one(notification_data)
+        notification_data["_id"] = result.inserted_id
+        return Notification(**notification_data)
 
     async def get_notifications(
         self,
@@ -38,6 +42,7 @@ class NotificationService:
         skip: int = 0
     ) -> List[Notification]:
         """Get notifications with optional filtering"""
+        db = await get_database()
         query = {}
         
         if type:
@@ -49,12 +54,17 @@ class NotificationService:
         if end_date:
             query["created_at"] = {"$lte": end_date}
         
-        notifications = await Notification.find(query).sort("created_at", -1).skip(skip).limit(limit).to_list(length=None)
-        return notifications
+        cursor = db.notifications.find(query).sort("created_at", -1).skip(skip).limit(limit)
+        notifications = await cursor.to_list(length=None)
+        return [Notification(**notification) for notification in notifications]
 
     async def get_notification(self, notification_id: str) -> Optional[Notification]:
         """Get a specific notification by ID"""
-        return await Notification.get(notification_id)
+        db = await get_database()
+        notification = await db.notifications.find_one({"_id": ObjectId(notification_id)})
+        if notification:
+            return Notification(**notification)
+        return None
 
     async def update_notification_status(
         self,
@@ -63,35 +73,40 @@ class NotificationService:
         error: Optional[str] = None
     ) -> Notification:
         """Update notification status"""
-        notification = await Notification.get(notification_id)
-        if not notification:
+        db = await get_database()
+        update_data = {
+            "status": status,
+            "updated_at": datetime.utcnow()
+        }
+        if error is not None:
+            update_data["error"] = error
+            
+        result = await db.notifications.find_one_and_update(
+            {"_id": ObjectId(notification_id)},
+            {"$set": update_data},
+            return_document=True
+        )
+        if not result:
             raise ValueError("Notification not found")
-        
-        notification.status = status
-        notification.error = error
-        notification.updated_at = datetime.utcnow()
-        await notification.save()
-        return notification
+        return Notification(**result)
 
     async def delete_notification(self, notification_id: str) -> bool:
         """Delete a notification"""
-        notification = await Notification.get(notification_id)
-        if not notification:
-            raise ValueError("Notification not found")
-        
-        await notification.delete()
-        return True
+        db = await get_database()
+        result = await db.notifications.delete_one({"_id": ObjectId(notification_id)})
+        return result.deleted_count > 0
 
     async def get_notification_stats(self) -> Dict[str, int]:
         """Get notification statistics"""
-        total = await Notification.count_documents({})
-        sent = await Notification.count_documents({"status": "sent"})
-        failed = await Notification.count_documents({"status": "failed"})
-        pending = await Notification.count_documents({"status": "pending"})
+        db = await get_database()
+        total = await db.notifications.count_documents({})
+        unread = await db.notifications.count_documents({"status": NotificationStatus.UNREAD})
+        read = await db.notifications.count_documents({"status": NotificationStatus.READ})
+        archived = await db.notifications.count_documents({"status": NotificationStatus.ARCHIVED})
         
         return {
             "total": total,
-            "sent": sent,
-            "failed": failed,
-            "pending": pending
+            "unread": unread,
+            "read": read,
+            "archived": archived
         } 

@@ -31,7 +31,8 @@ class Notification(BaseModel):
     class Config:
         populate_by_name = True
         json_encoders = {
-            datetime: lambda dt: dt.isoformat()
+            datetime: lambda dt: dt.isoformat(),
+            ObjectId: lambda oid: str(oid)
         }
         json_schema_extra = {
             "example": {
