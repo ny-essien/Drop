@@ -25,7 +25,8 @@ from app.db import get_database
 @pytest.fixture(scope="session")
 def event_loop():
     """Create an instance of the default event loop for each test case."""
-    loop = asyncio.get_event_loop_policy().new_event_loop()
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
     yield loop
     loop.close()
 
@@ -43,11 +44,16 @@ async def test_db():
     db_name = f"test_dropshipping_{uuid.uuid4().hex[:8]}"
     db = client[db_name]
     
+    # Initialize collections
+    await db.users.create_index("email", unique=True)
+    await db.products.create_index("sku", unique=True)
+    await db.orders.create_index("_id", unique=True)
+    
     try:
         yield db
     finally:
         await db.client.drop_database(db_name)
-        db.client.close()
+        await db.client.close()
 
 @pytest.fixture(scope="session")
 def test_app():
@@ -107,6 +113,19 @@ def auth_headers():
     """Create authentication headers for testing."""
     return {"Authorization": "Bearer test_token"}
 
+@pytest.fixture(autouse=True)
+async def setup_teardown(test_db):
+    """Clean up database before and after each test."""
+    # Clean up before test
+    collections = await test_db.list_collection_names()
+    for collection in collections:
+        await test_db[collection].delete_many({})
+    yield
+    # Clean up after test
+    collections = await test_db.list_collection_names()
+    for collection in collections:
+        await test_db[collection].delete_many({})
+
 @pytest.fixture(scope="session")
 async def setup_test_db(test_db):
     """Set up test database and return a test user."""
@@ -117,7 +136,7 @@ async def setup_test_db(test_db):
         "hashed_password": "$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewKyNiAYqeScNazS",  # test123
         "is_active": True,
         "is_admin": False,
-        "created_at": "2025-04-27T12:37:18.506744",
+        "created_at": datetime.utcnow(),
         "updated_at": None
     }
     
@@ -126,13 +145,4 @@ async def setup_test_db(test_db):
 
 @pytest.fixture
 def client():
-    return TestClient(app)
-
-@pytest.fixture(autouse=True)
-async def setup_teardown(test_db):
-    """Set up and tear down test database for each test."""
-    # Clean up before each test
-    await test_db.notifications.delete_many({})
-    yield
-    # Clean up after each test
-    await test_db.notifications.delete_many({}) 
+    return TestClient(app) 
