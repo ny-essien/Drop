@@ -116,4 +116,13 @@ async def setup_test_db(test_db, test_user, test_admin):
 
 @pytest.fixture
 def client():
-    return TestClient(app) 
+    return TestClient(app)
+
+@pytest.fixture(autouse=True)
+async def setup_teardown(test_db):
+    """Set up and tear down test database for each test."""
+    # Clean up before each test
+    await test_db.notifications.delete_many({})
+    yield
+    # Clean up after each test
+    await test_db.notifications.delete_many({}) 

@@ -1,5 +1,5 @@
 from typing import Optional, Dict, Any
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from datetime import datetime
 from bson import ObjectId
 from enum import Enum
@@ -7,9 +7,9 @@ from enum import Enum
 class NotificationType(str, Enum):
     ORDER = "order"
     PAYMENT = "payment"
-    SHIPMENT = "shipment"
+    SHIPPING = "shipping"
     SYSTEM = "system"
-    PROMOTION = "promotion"
+    INFO = "info"
 
 class NotificationStatus(str, Enum):
     UNREAD = "unread"
@@ -17,7 +17,7 @@ class NotificationStatus(str, Enum):
     ARCHIVED = "archived"
 
 class Notification(BaseModel):
-    id: str = Field(default_factory=lambda: str(ObjectId()), alias="_id")
+    id: str = Field(alias="_id")
     user_id: str
     type: NotificationType
     title: str
@@ -28,27 +28,30 @@ class Notification(BaseModel):
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
+    @field_validator("id", mode="before")
+    def convert_objectid_to_str(cls, v):
+        if isinstance(v, ObjectId):
+            return str(v)
+        return v
+
     class Config:
-        populate_by_name = True
         json_encoders = {
             datetime: lambda dt: dt.isoformat(),
             ObjectId: lambda oid: str(oid)
         }
+        populate_by_name = True
         json_schema_extra = {
             "example": {
                 "user_id": "user123",
                 "type": "order",
-                "title": "Order Status Update",
-                "message": "Your order has been shipped",
+                "title": "Order Confirmation",
+                "message": "Your order has been confirmed",
                 "status": "unread",
-                "metadata": {
-                    "order_id": "order123"
-                }
+                "metadata": {"order_id": "order123"}
             }
         }
 
 class NotificationCreate(BaseModel):
-    user_id: str
     type: NotificationType
     title: str
     message: str
@@ -57,6 +60,6 @@ class NotificationCreate(BaseModel):
     metadata: Dict[str, Any] = {}
 
 class NotificationUpdate(BaseModel):
-    status: Optional[NotificationStatus] = None
+    status: NotificationStatus
     error: Optional[str] = None
     metadata: Optional[Dict[str, Any]] = None 
