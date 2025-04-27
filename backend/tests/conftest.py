@@ -31,18 +31,17 @@ def event_loop():
     loop.close()
 
 @pytest.fixture(scope="session")
-async def mongo_client():
+async def mongo_client(event_loop):
     """Create a MongoDB client for testing."""
-    client = AsyncIOMotorClient(settings.MONGODB_URL)
+    client = AsyncIOMotorClient(settings.MONGODB_URL, io_loop=event_loop)
     yield client
     client.close()
 
 @pytest.fixture(scope="session")
-async def test_db():
+async def test_db(mongo_client, event_loop):
     """Create a test database and clean it up after tests."""
-    client = AsyncIOMotorClient(settings.MONGODB_URL)
     db_name = f"test_dropshipping_{uuid.uuid4().hex[:8]}"
-    db = client[db_name]
+    db = mongo_client[db_name]
     
     # Initialize collections
     await db.users.create_index("email", unique=True)
@@ -117,7 +116,7 @@ def auth_headers():
     return {"Authorization": "Bearer test_token"}
 
 @pytest.fixture(autouse=True)
-async def setup_teardown(test_db):
+async def setup_teardown(test_db, event_loop):
     """Clean up database before and after each test."""
     # Clean up before test
     collections = await test_db.list_collection_names()
