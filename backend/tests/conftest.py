@@ -46,8 +46,11 @@ async def test_db():
     
     # Initialize collections
     await db.users.create_index("email", unique=True)
-    await db.products.create_index("sku", unique=True)
-    await db.orders.create_index("_id", unique=True)
+    await db.products.create_index("name", unique=True)
+    await db.products.create_index("category")
+    await db.orders.create_index("user_id")
+    await db.orders.create_index("status")
+    await db.orders.create_index("created_at")
     
     try:
         yield db
