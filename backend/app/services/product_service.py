@@ -8,10 +8,16 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 class ProductService:
     def __init__(self, db: AsyncIOMotorDatabase):
         self.db = db
-        self.product_collection = db["products"]
+        self.product_collection = None
+
+    async def initialize(self):
+        """Initialize database collections"""
+        if self.product_collection is None:
+            self.product_collection = self.db["products"]
 
     async def create_product(self, product: Product) -> Product:
         """Create a new product"""
+        await self.initialize()
         product_dict = product.model_dump(exclude={"id"})
         result = await self.product_collection.insert_one(product_dict)
         product_dict["_id"] = str(result.inserted_id)
@@ -19,6 +25,7 @@ class ProductService:
 
     async def get_product(self, product_id: str) -> Optional[Product]:
         """Get a product by ID"""
+        await self.initialize()
         try:
             product = await self.product_collection.find_one({"_id": ObjectId(product_id)})
             if product:
@@ -30,6 +37,7 @@ class ProductService:
 
     async def update_product(self, product_id: str, product: Product) -> Optional[Product]:
         """Update a product"""
+        await self.initialize()
         try:
             product_dict = product.model_dump(exclude={"id"})
             result = await self.product_collection.update_one(
@@ -45,6 +53,7 @@ class ProductService:
 
     async def delete_product(self, product_id: str) -> bool:
         """Delete a product"""
+        await self.initialize()
         try:
             result = await self.product_collection.delete_one({"_id": ObjectId(product_id)})
             return result.deleted_count > 0
@@ -58,6 +67,7 @@ class ProductService:
         search: Optional[str] = None
     ) -> List[Product]:
         """List products with optional search"""
+        await self.initialize()
         query = {}
         if search:
             query["$or"] = [

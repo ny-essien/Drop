@@ -12,14 +12,22 @@ from app.config import settings
 
 class MLService:
     def __init__(self):
-        self.db = get_database()
-        self.orders_collection = self.db["orders"]
-        self.products_collection = self.db["products"]
+        self.db = None
+        self.orders_collection = None
+        self.products_collection = None
         self.models_dir = "ml_models"
         os.makedirs(self.models_dir, exist_ok=True)
         
+    async def initialize(self):
+        """Initialize database connection"""
+        if self.db is None:
+            self.db = await get_database()
+            self.orders_collection = self.db["orders"]
+            self.products_collection = self.db["products"]
+        
     async def prepare_price_data(self) -> pd.DataFrame:
         """Prepare data for price optimization model"""
+        await self.initialize()
         products = await self.products_collection.find({}).to_list(length=None)
         orders = await self.orders_collection.find({}).to_list(length=None)
         

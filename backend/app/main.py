@@ -1,15 +1,17 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.api import auth, products, cart, orders, notifications
 from app.core.config import settings
+from app.api import auth, products, notifications, orders
+from app.db.mongodb import get_database
+from motor.motor_asyncio import AsyncIOMotorDatabase
 
 app = FastAPI(
-    title="Dropshipping Platform API",
-    description="API for the Dropshipping Platform",
-    version="1.0.0"
+    title=settings.PROJECT_NAME,
+    version=settings.VERSION,
+    openapi_url=f"{settings.API_V1_STR}/openapi.json"
 )
 
-# Configure CORS
+# Set up CORS middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.BACKEND_CORS_ORIGINS,
@@ -19,11 +21,18 @@ app.add_middleware(
 )
 
 # Include routers
-app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
-app.include_router(products.router, prefix="/api/v1/products", tags=["Products"])
-app.include_router(cart.router, prefix="/api/cart", tags=["Cart"])
-app.include_router(orders.router, prefix="/api/orders", tags=["Orders"])
-app.include_router(notifications.router, prefix="/api/v1/notifications", tags=["Notifications"])
+app.include_router(auth.router, prefix=f"{settings.API_V1_STR}/auth", tags=["auth"])
+app.include_router(products.router, prefix=f"{settings.API_V1_STR}/products", tags=["products"])
+app.include_router(notifications.router, prefix=f"{settings.API_V1_STR}/notifications", tags=["notifications"])
+app.include_router(orders.router, prefix=f"{settings.API_V1_STR}/orders", tags=["orders"])
+
+@app.on_event("startup")
+async def startup_db_client():
+    await get_database()
+
+@app.on_event("shutdown")
+async def shutdown_db_client():
+    pass  # MongoDB client will be closed automatically
 
 @app.get("/")
 async def root():

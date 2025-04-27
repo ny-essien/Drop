@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 from motor.motor_asyncio import AsyncIOMotorClient
 from datetime import datetime, timedelta
 from jose import jwt
+import uuid
 
 # Add the backend directory to Python path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -36,16 +37,21 @@ async def mongo_client():
     client.close()
 
 @pytest.fixture(scope="session")
-async def test_db(mongo_client):
-    """Create a test database."""
-    db_name = "test_" + settings.DATABASE_NAME
-    db = mongo_client[db_name]
-    yield db
-    await mongo_client.drop_database(db_name)
+async def test_db():
+    """Create a test database and clean it up after tests."""
+    client = AsyncIOMotorClient(settings.MONGODB_URL)
+    db_name = f"test_dropshipping_{uuid.uuid4().hex[:8]}"
+    db = client[db_name]
+    
+    try:
+        yield db
+    finally:
+        await db.client.drop_database(db_name)
+        db.client.close()
 
 @pytest.fixture(scope="session")
 def test_app():
-    """Create a test client."""
+    """Create a test client for the FastAPI app."""
     return TestClient(app)
 
 @pytest.fixture
@@ -101,18 +107,22 @@ def auth_headers():
     """Create authentication headers for testing."""
     return {"Authorization": "Bearer test_token"}
 
-@pytest.fixture
-async def setup_test_db(test_db, test_user, test_admin):
-    """Set up the test database with initial data."""
-    # Insert test users
-    await test_db.users.insert_one(test_user)
-    await test_db.users.insert_one(test_admin)
-    yield
-    # Clean up
-    await test_db.users.delete_many({})
-    await test_db.notifications.delete_many({})
-    await test_db.orders.delete_many({})
-    await test_db.products.delete_many({})
+@pytest.fixture(scope="session")
+async def setup_test_db(test_db):
+    """Set up test database and return a test user."""
+    # Create test user
+    user_data = {
+        "email": "test@example.com",
+        "username": "testuser",
+        "hashed_password": "$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewKyNiAYqeScNazS",  # test123
+        "is_active": True,
+        "is_admin": False,
+        "created_at": "2025-04-27T12:37:18.506744",
+        "updated_at": None
+    }
+    
+    await test_db.users.insert_one(user_data)
+    return user_data
 
 @pytest.fixture
 def client():
